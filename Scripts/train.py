@@ -27,7 +27,11 @@ for filename in os.listdir(dataset_dir):
     df["Volume"] = volume
     df.set_index(df.Time, inplace=True)
     # print(df.head())
+    
+    # scale only closing price which will be the input of the LSTM Model.
     scaled_data = scaler.fit_transform(df["Close"].values.reshape(-1, 1))
+    
+    # train & test split.
     for x in range(prediction_days, len(scaled_data)):
         x_train.append(scaled_data[x - prediction_days: x, 0])
         y_train.append(scaled_data[x, 0])
@@ -35,6 +39,7 @@ for filename in os.listdir(dataset_dir):
     x_train, y_train = np.array(x_train), np.array(y_train)
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
+    # arbitrarly set hyperparameters of the model.
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)))
     model.add(Dropout(0.2))
@@ -47,6 +52,7 @@ for filename in os.listdir(dataset_dir):
     model.compile(optimizer='adam', loss='mean_squared_error')
     model.fit(x_train, y_train, epochs=25, batch_size=32)
     
+    # build a communication protocol to trigger trading bot that runs on MetaTrader platform.
     file = open(output_dir + "/" + filename.split(".")[0] + ".txt", "w")
     file.write("done.")
     file.close()
@@ -73,9 +79,11 @@ for filename in os.listdir(dataset_dir):
 
     predicted_prices = model.predict(x_test)
     predicted_prices = scaler.inverse_transform(predicted_prices)
+    # @TODO: write prediction into a file so it can be read from MT Platform. 
+    # Format ==> Symbol + TimeFrame, prediction
+    # as csv file.
 
-    # visualize
-
+    # visualize test results.
     plt.plot(actual_prices, color="green", label="actual prices")
     plt.plot(predicted_prices, color="orange", label="predicted prices")
     plt.legend()
